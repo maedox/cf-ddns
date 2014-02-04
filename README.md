@@ -1,7 +1,7 @@
 cf-ddns
 =======
 
-# Cloudlfare DNS client
+# Cloudflare DNS client
 
 Cloudflare has a nice API for managing DNS records, and this script is a simple
 way of keeping your subdomains up to date.
