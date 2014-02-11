@@ -36,11 +36,11 @@ log.setLevel("INFO")
 log.addHandler(log_handler)
 
 
-def set_cf_record(subdomain, domain, email, token, ip_addr, rec_type, cf_mode):
+def set_cf_record(subdomain, domain, email, token, dest_addr, rec_type, cf_mode):
     """Connect to the Cloudflare API and add or update a DNS record"""
 
     log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
-              domain, subdomain, email, ip_addr, rec_type, cf_mode)
+              domain, subdomain, email, dest_addr, rec_type, cf_mode)
 
     cf_api = CloudFlare(email, token)
 
@@ -52,7 +52,7 @@ def set_cf_record(subdomain, domain, email, token, ip_addr, rec_type, cf_mode):
         rec_name = record["name"]
         if rec_name == subdomain:
             # Don't update identical record
-            if record["content"] == ip_addr:
+            if record["content"] == dest_addr:
                 log.debug("Identical record already exists.")
                 return
 
@@ -62,17 +62,17 @@ def set_cf_record(subdomain, domain, email, token, ip_addr, rec_type, cf_mode):
     if rec_id:
         log.info("Found existing record with id: %s", rec_id)
         api_resp = cf_api.rec_edit(domain, rec_type, rec_id,
-                                   rec_name, ip_addr, cf_mode)
+                                   rec_name, dest_addr, cf_mode)
         log.info("Updated record: %s %s %s",
-                 subdomain, rec_type, ip_addr)
+                 subdomain, rec_type, dest_addr)
         log.debug("Response from Cloudflare: %s", api_resp)
 
     else:
         log.debug("The record doesn't exist, adding it...")
-        api_resp = cf_api.rec_new(domain, rec_type, ip_addr,
+        api_resp = cf_api.rec_new(domain, rec_type, dest_addr,
                                   subdomain, cf_mode)
         log.info("Added new record: %s %s %s",
-                 subdomain, rec_type, ip_addr)
+                 subdomain, rec_type, dest_addr)
         log.debug("Response from Cloudflare: %s", api_resp)
 
 
@@ -101,6 +101,8 @@ if __name__ == "__main__":
                         help="Cloudflare API token")
     parser.add_argument("--subdomain", dest="subdomain", default="domain",
                         help="DNS record subdomain")
+    parser.add_argument("--content", dest="dest_addr", default=None,
+                        help="Destination address or DNS record content")
     parser.add_argument("--cf-mode", dest="cf_mode", default="1",
                         help="Cloudflare service mode on(1)/off(0)")
     parser.add_argument("--type", dest="rec_type", default="A",
@@ -116,24 +118,29 @@ if __name__ == "__main__":
                         help="Log level (ERROR, WARNING, INFO, DEBUG etc.)")
     args = parser.parse_args()
 
+    cf_mode = args.cf_mode
+    dest_addr = args.dest_addr
     domain = args.domain
     email = args.email
-    token = args.token
-    cf_mode = args.cf_mode
-    rec_type = args.rec_type
     ip_services = args.ip_services
+    rec_type = args.rec_type
+    token = args.token
     log.setLevel(args.log_level.upper())
 
     if args.subdomain == "domain":
         subdomain = domain
     else:
-        subdomain = args.subdomain
         subdomain = args.subdomain + "." + domain
 
-    ip_addr = get_external_ip(ip_services)
-    if ip_addr:
-        log.debug("Found external IP address: " + ip_addr)
+    if dest_addr:
         set_cf_record(subdomain, domain, email, token,
-                      ip_addr, rec_type, cf_mode)
+                      dest_addr, rec_type, cf_mode)
+
     else:
-        log.error("Sorry, can't do anything without the external IP address.")
+        ip_addr = get_external_ip(ip_services)
+        if ip_addr:
+            log.debug("Found external IP address: " + ip_addr)
+            set_cf_record(subdomain, domain, email, token,
+                          ip_addr, rec_type, cf_mode)
+        else:
+            log.error("Sorry, can't do anything without the external IP address.")
