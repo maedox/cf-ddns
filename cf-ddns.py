@@ -26,6 +26,11 @@ from cloudflare import CloudFlare
 from os import path
 from urllib2 import urlopen
 
+valid_record_types = ("A", "AAAA", "CNAME", "LOC",
+                      "MX", "NS", "SPF", "SRV", "TXT")
+valid_log_levels = ("CRITICAL", "ERROR", "WARNING",
+                    "INFO", "DEBUG", "NOTSET")
+
 log_path = path.join(path.expanduser("~"), ".cf-ddns.log")
 log_handler = logging.handlers.RotatingFileHandler(
     filename=log_path, maxBytes=1000000, backupCount=1, encoding="utf-8")
@@ -104,18 +109,18 @@ if __name__ == "__main__":
     parser.add_argument("--content", dest="dest_addr", default=None,
                         help="Destination address or DNS record content")
     parser.add_argument("--cf-mode", dest="cf_mode", default="1",
+                        choices=(0, 1),
                         help="Cloudflare service mode on(1)/off(0)")
     parser.add_argument("--type", dest="rec_type", default="A",
+                        choices=valid_record_types,
                         help="DNS record type")
     parser.add_argument("--ip-service", dest="ip_services", nargs="+",
-                        default=(
-                            "http://icanhazip.com",
-                            "http://ip.appspot.com",
-                            "http://my-ip.heroku.com"
-                        ), metavar="URL",
-                        help="URL to a service for getting external IP address")
+                        default=("http://icanhazip.com", "http://ip.appspot.com",
+                                 "http://my-ip.heroku.com"), metavar="URL",
+                        help="URL(s) to obtain external IP address from")
     parser.add_argument("--log-level", dest="log_level", default="INFO",
-                        help="Log level (ERROR, WARNING, INFO, DEBUG etc.)")
+                        choices=valid_log_levels,
+                        help="Logging level")
     args = parser.parse_args()
 
     cf_mode = args.cf_mode
@@ -125,7 +130,7 @@ if __name__ == "__main__":
     ip_services = args.ip_services
     rec_type = args.rec_type
     token = args.token
-    log.setLevel(args.log_level.upper())
+    log.setLevel(args.log_level)
 
     if args.subdomain == "domain":
         subdomain = domain
