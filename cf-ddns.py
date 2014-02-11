@@ -128,6 +128,7 @@ if __name__ == "__main__":
         subdomain = domain
     else:
         subdomain = args.subdomain
+        subdomain = args.subdomain + "." + domain
 
     ip_addr = get_external_ip(ip_services)
     if ip_addr:
