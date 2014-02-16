@@ -22,6 +22,7 @@ __author__ = "Pål Nilsen (@maedox)"
 
 import logging
 import logging.handlers
+import socket
 from cloudflare import CloudFlare
 from os import path
 from urllib2 import urlopen
@@ -41,8 +42,40 @@ log.setLevel("INFO")
 log.addHandler(log_handler)
 
 
+def is_valid_ipv4(ip_addr):
+    try:
+        return socket.inet_pton(socket.AF_INET, ip_addr)
+    except socket.error:
+        return False
+
+
+def is_valid_ipv6(ip_addr):
+    try:
+        return socket.inet_pton(socket.AF_INET6, ip_addr)
+    except socket.error:
+        return False
+
+
 def set_cf_record(subdomain, domain, email, token, dest_addr, rec_type, cf_mode):
     """Connect to the Cloudflare API and add or update a DNS record"""
+
+    if rec_type == "A":
+        if is_valid_ipv6(dest_addr):
+            print(dest_addr + " is an IPv6 address. Use --type AAAA.")
+            exit(1)
+
+        if not is_valid_ipv4(dest_addr):
+            print(dest_addr + " is not a valid IPv4 address.")
+            exit(1)
+
+    if rec_type == "AAAA":
+        if is_valid_ipv4(dest_addr):
+            print(dest_addr + " is an IPv4 address. Use --type A.")
+            exit(1)
+
+        if not is_valid_ipv6(dest_addr):
+            print(dest_addr + " is not a valid IPv6 address.")
+            exit(1)
 
     log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
               domain, subdomain, email, dest_addr, rec_type, cf_mode)
