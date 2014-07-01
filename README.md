@@ -36,4 +36,4 @@ It will probably crash and burn if you have an IPv6 address.
 
 Twitter: https://twitter.com/maedox/
 
-Google+: https://plus.google.com/109034374937381314474/
+Google+: https://plus.google.com/+PålNilsen
