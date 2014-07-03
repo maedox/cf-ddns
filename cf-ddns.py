@@ -141,6 +141,19 @@ def get_external_ip(services):
     return ip
 
 
+def list_cf_records(domain, email, token):
+    cf_api = cloudflare.CloudFlare(email, token)
+    records = cf_api.rec_load_all(domain)
+    output = []
+    for rec in records['response']['recs']['objs']:
+        output.append({
+            'id': rec['rec_id'],
+            'name': rec['name'],
+            'type': rec['type'],
+            'content': rec['content'],
+            'service_mode': rec['service_mode'],
+        })
+    return output
 
 
 if __name__ == "__main__":
@@ -148,6 +161,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument("--list", action='store_true',
+                        help="List all existing DNS records")
     parser.add_argument("--domain", dest="domain", required=True,
                         help="CloudFlare account domain")
     parser.add_argument("--email", dest="email", required=True,
@@ -172,6 +187,17 @@ if __name__ == "__main__":
                         choices=valid_log_levels,
                         help="Logging level")
     args = parser.parse_args()
+
+    if args.list:
+        recs = list_cf_records(args.domain, args.email, args.token)
+        name_width = max(len(r['name']) for r in recs)
+        content_width = max(len(r['content']) for r in recs)
+        for r in recs:
+            print('  '.join((
+                r['name'].ljust(name_width), r['type'].ljust(5),
+                r['content'].ljust(content_width), r['service_mode']))
+            )
+        exit()
 
     if args.subdomain:
         subdomain = args.subdomain + "." + args.domain
