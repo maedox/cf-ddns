@@ -18,14 +18,15 @@ Credit/inspiration:
     - dyndns-cf by scotchmist (https://github.com/scotchmist/dyndns-cf)
 """
 
-__author__ = "Pål Nilsen (@maedox)"
-
 import logging
 import logging.handlers
 import socket
 
+from getpass import getpass
 from os import path
 from sys import version_info
+
+__author__ = "Pål Nilsen (@maedox)"
 
 # Support Python 2.7 and 3.3+ even if python-cloudflare doesn't yet.
 if version_info >= (2, 7):
@@ -158,17 +159,27 @@ def list_cf_records(domain, email, token):
 
 if __name__ == "__main__":
     import argparse
+
+    try:
+        import keyring
+        use_keyring = True
+    except ImportError:
+        use_keyring = False
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    me = parser.add_mutually_exclusive_group(required=True)
+    me.add_argument("--list", action='store_true',
+                    help="List all existing DNS records")
+    me.add_argument("--update", action='store_true',
+                    help="Update a DNS record")
 
-    parser.add_argument("--list", action='store_true',
-                        help="List all existing DNS records")
     parser.add_argument("--domain", dest="domain", required=True,
                         help="CloudFlare account domain")
     parser.add_argument("--email", dest="email", required=True,
                         help="CloudFlare account email")
-    parser.add_argument("--token", dest="token", required=True,
-                        help="CloudFlare API token")
+    parser.add_argument("--token", dest="token",
+                        help="CloudFlare API token. Will use the keyring module if it's installed.")
     parser.add_argument("--subdomain", dest="subdomain",
                         help="DNS record subdomain")
     parser.add_argument("--content", dest="dest_addr",
@@ -188,37 +199,59 @@ if __name__ == "__main__":
                         help="Logging level")
     args = parser.parse_args()
 
-    if args.list:
-        recs = list_cf_records(args.domain, args.email, args.token)
-        name_width = max(len(r['name']) for r in recs)
-        content_width = max(len(r['content']) for r in recs)
-        for r in recs:
-            print('  '.join((
-                r['name'].ljust(name_width), r['type'].ljust(5),
-                r['content'].ljust(content_width), r['service_mode']))
-            )
-        exit()
-
-    if args.subdomain:
-        subdomain = args.subdomain + "." + args.domain
-    else:
-        subdomain = args.domain
-
-    try:
-        if args.dest_addr:
-            set_cf_record(subdomain, args.domain, args.email, args.token,
-                          args.dest_addr, args.rec_type, args.cf_mode)
-
+    token = args.token
+    if not token:
+        if use_keyring:
+            service = "cf-ddns"
+            token = keyring.get_password(service, args.email)
+            if not token:
+                print("Cloudflare domain: '{0}', email: '{1}'".format(
+                    args.domain, args.email))
+                while not token:
+                    try:
+                        token = getpass('API token: ')
+                        keyring.set_password(service, args.email, token)
+                    except KeyboardInterrupt:
+                        exit()
         else:
-            ip_addr = get_external_ip(args.ip_services)
-            if ip_addr:
-                log.debug("Found external IP address: " + ip_addr)
-                set_cf_record(subdomain, args.domain, args.email, args.token,
-                              ip_addr, args.rec_type, args.cf_mode)
-            else:
-                log.error("Sorry, can't do anything without the external IP address. "
-                          "Please specify an IP address manually or make sure the IP resolution "
-                          "service(s) work as expected.")
+            exit("API token must be specified using the --token argument.")
 
-    except cloudflare.CloudFlare.APIError as e:
-        log.error("CloudFlare API responded with error: {}".format(e))
+    if args.list:
+        recs = list_cf_records(args.domain, args.email, token)
+        if recs:
+            name_width = max(len(r['name']) for r in recs)
+            content_width = max(len(r['content']) for r in recs)
+            print('  '.join((
+                'Source'.ljust(name_width), 'Type ',
+                'Target'.ljust(content_width), 'CF service'
+            )) + '\n')
+            for r in recs:
+                print('  '.join((
+                    r['name'].ljust(name_width), r['type'].ljust(5),
+                    r['content'].ljust(content_width), r['service_mode']))
+                )
+
+    if args.update:
+        if args.subdomain:
+            subdomain = args.subdomain + "." + args.domain
+        else:
+            subdomain = args.domain
+
+        try:
+            if args.dest_addr:
+                set_cf_record(subdomain, args.domain, args.email, token,
+                              args.dest_addr, args.rec_type, args.cf_mode)
+
+            else:
+                ip_addr = get_external_ip(args.ip_services)
+                if ip_addr:
+                    log.debug("Found external IP address: " + ip_addr)
+                    set_cf_record(subdomain, args.domain, args.email, token,
+                                  ip_addr, args.rec_type, args.cf_mode)
+                else:
+                    log.error("Sorry, can't do anything without the external IP address. "
+                              "Please specify an IP address manually or make sure the IP resolution "
+                              "service(s) work as expected.")
+
+        except cloudflare.CloudFlare.APIError as e:
+            log.error("CloudFlare API responded with error: {}".format(e))
