@@ -6,7 +6,7 @@ cf-ddns
 Cloudflare has a nice API for managing DNS records, and this script is a simple
 way of keeping your subdomains up to date.
 
-You should probably run if from your crontab every five minutes or so.
+You should probably run it from your crontab every five minutes or so.
 
 This will add/update an A record for domain.tld with your external IP address:
 ```*/5 *  * * *  cf-ddns.py --domain domain.tld --email user@domain.tld --token ***```
