@@ -233,7 +233,10 @@ if __name__ == "__main__":
 
     if args.update:
         if args.subdomain:
-            subdomain = args.subdomain + "." + args.domain
+            if args.subdomain.endswith('.' + args.domain):
+                subdomain = args.subdomain
+            else:
+                subdomain = args.subdomain + '.' + args.domain
         else:
             subdomain = args.domain
 
