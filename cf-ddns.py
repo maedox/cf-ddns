@@ -72,7 +72,7 @@ def is_ipv6(ip_address):
         return False
 
 
-def set_cf_record(subdomain, domain, email, token, dest_addr, rec_type, cf_mode):
+def modify_record(subdom, domain, email, tkn, dest_addr, rec_type, cf_mode):
     """Connect to the CloudFlare API and add or update a DNS record"""
 
     if rec_type == "A":
@@ -94,18 +94,18 @@ def set_cf_record(subdomain, domain, email, token, dest_addr, rec_type, cf_mode)
             exit(1)
 
     log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
-              domain, subdomain, email, dest_addr, rec_type, cf_mode)
+              domain, subdom, email, dest_addr, rec_type, cf_mode)
 
-    cf_api = cloudflare.CloudFlare(email, token)
-
-    records = cf_api.rec_load_all(domain)
+    cf_api = cloudflare.CloudFlare(email, tkn)
+    records = get_all_records(domain, email, tkn)
     log.debug("%s records: %s", domain, records)
+
     rec_id = None
     rec_name = None
 
-    for record in records["response"]["recs"]["objs"]:
+    for record in records:
         rec_name = record["name"]
-        if rec_name == subdomain:
+        if rec_name == subdom:
             # Don't update identical record
             if record["content"] == dest_addr:
                 log.debug("Identical record already exists.")
@@ -119,15 +119,15 @@ def set_cf_record(subdomain, domain, email, token, dest_addr, rec_type, cf_mode)
         api_resp = cf_api.rec_edit(domain, rec_type, rec_id,
                                    rec_name, dest_addr, cf_mode)
         log.info("Updated record: %s %s %s",
-                 subdomain, rec_type, dest_addr)
+                 subdom, rec_type, dest_addr)
         log.debug("Response from CloudFlare: %s", api_resp)
 
     else:
         log.debug("The record doesn't exist, adding it...")
         api_resp = cf_api.rec_new(domain, rec_type, dest_addr,
-                                  subdomain, cf_mode)
+                                  subdom, cf_mode)
         log.info("Added new record: %s %s %s",
-                 subdomain, rec_type, dest_addr)
+                 subdom, rec_type, dest_addr)
         log.debug("Response from CloudFlare: %s", api_resp)
 
 
@@ -142,19 +142,35 @@ def get_external_ip(services):
     return ip
 
 
-def list_cf_records(domain, email, token):
-    cf_api = cloudflare.CloudFlare(email, token)
+def get_all_records(domain, email, tkn):
+    cf_api = cloudflare.CloudFlare(email, tkn)
     records = cf_api.rec_load_all(domain)
-    output = []
-    for rec in records['response']['recs']['objs']:
-        output.append({
+    return records['response']['recs']['objs']
+
+
+def pretty_print_records(records):
+    recs = []
+    for rec in records:
+        recs.append({
             'id': rec['rec_id'],
             'name': rec['name'],
             'type': rec['type'],
             'content': rec['content'],
             'service_mode': rec['service_mode'],
         })
-    return output
+
+    if recs:
+        name_width = max(len(r['name']) for r in recs)
+        content_width = max(len(r['content']) for r in recs)
+        print('  '.join((
+            'Source'.ljust(name_width), 'Type ',
+            'Target'.ljust(content_width), 'CF service'
+        )) + '\n')
+        for r in recs:
+            print('  '.join((
+                r['name'].ljust(name_width), r['type'].ljust(5),
+                r['content'].ljust(content_width), r['service_mode']))
+            )
 
 
 if __name__ == "__main__":
@@ -184,7 +200,7 @@ if __name__ == "__main__":
                         help="DNS record subdomain")
     parser.add_argument("--content", dest="dest_addr",
                         help="Destination address or DNS record content")
-    parser.add_argument("--cf-mode", dest="cf_mode", default="1",
+    parser.add_argument("--cf-mode", dest="cf_mode", default="0",
                         choices=(0, 1),
                         help="CloudFlare service mode on(1)/off(0)")
     parser.add_argument("--type", dest="rec_type", default="A",
@@ -217,19 +233,7 @@ if __name__ == "__main__":
             exit("API token must be specified using the --token argument.")
 
     if args.list:
-        recs = list_cf_records(args.domain, args.email, token)
-        if recs:
-            name_width = max(len(r['name']) for r in recs)
-            content_width = max(len(r['content']) for r in recs)
-            print('  '.join((
-                'Source'.ljust(name_width), 'Type ',
-                'Target'.ljust(content_width), 'CF service'
-            )) + '\n')
-            for r in recs:
-                print('  '.join((
-                    r['name'].ljust(name_width), r['type'].ljust(5),
-                    r['content'].ljust(content_width), r['service_mode']))
-                )
+        pretty_print_records(get_all_records(args.domain, args.email, token))
 
     if args.update:
         if args.subdomain:
@@ -242,14 +246,14 @@ if __name__ == "__main__":
 
         try:
             if args.dest_addr:
-                set_cf_record(subdomain, args.domain, args.email, token,
+                modify_record(subdomain, args.domain, args.email, token,
                               args.dest_addr, args.rec_type, args.cf_mode)
 
             else:
                 ip_addr = get_external_ip(args.ip_services)
                 if ip_addr:
                     log.debug("Found external IP address: " + ip_addr)
-                    set_cf_record(subdomain, args.domain, args.email, token,
+                    modify_record(subdomain, args.domain, args.email, token,
                                   ip_addr, args.rec_type, args.cf_mode)
                 else:
                     log.error("Sorry, can't do anything without the external IP address. "
