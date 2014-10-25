@@ -207,8 +207,7 @@ if __name__ == "__main__":
                         choices=valid_record_types,
                         help="DNS record type")
     parser.add_argument("--ip-service", dest="ip_services", nargs="+",
-                        default=("http://icanhazip.com", "http://ip.appspot.com",
-                                 "http://my-ip.heroku.com"), metavar="URL",
+                        default=("http://icanhazip.com", "http://ip.appspot.com"), metavar="URL",
                         help="URL(s) to obtain external IP address from")
     parser.add_argument("--log-level", dest="log_level", default="INFO",
                         choices=valid_log_levels,
