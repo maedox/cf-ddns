@@ -93,6 +93,14 @@ def modify_record(subdom, domain, email, tkn, dest_addr, rec_type, cf_mode):
             print(dest_addr + " is not a valid IPv6 address.")
             exit(1)
 
+    if not rec_type:
+        if is_ipv4(dest_addr):
+            rec_type = 'A'
+        elif is_ipv6(dest_addr):
+            rec_type = 'AAAA'
+        else:
+            raise ValueError('Unable to determine record type. Please add the --type argument.')
+
     log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
               domain, subdom, email, dest_addr, rec_type, cf_mode)
 
@@ -134,9 +142,9 @@ def modify_record(subdom, domain, email, tkn, dest_addr, rec_type, cf_mode):
 def get_external_ip(services):
     """Get the external IP address from any available free web service"""
     ip = None
-    for service in services:
+    for s in services:
         try:
-            ip = urlopen(service).read().strip()
+            ip = urlopen(s).read().strip()
         except Exception:
             pass
     return ip
@@ -203,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("--cf-mode", dest="cf_mode", default="0",
                         choices=(0, 1),
                         help="CloudFlare service mode on(1)/off(0)")
-    parser.add_argument("--type", dest="rec_type", default="A",
+    parser.add_argument("--type", dest="rec_type", default="",
                         choices=valid_record_types,
                         help="DNS record type")
     parser.add_argument("--ip-service", dest="ip_services", nargs="+",
