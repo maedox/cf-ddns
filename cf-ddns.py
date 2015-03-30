@@ -17,16 +17,24 @@ Requirements:
 Credit/inspiration:
     - dyndns-cf by scotchmist (https://github.com/scotchmist/dyndns-cf)
 """
+__author__ = "Pål Nilsen (@maedox)"
 
 import logging
 import logging.handlers
+import netrc
 import socket
 
 from getpass import getpass
 from os import path
 from sys import version_info
+import argparse
 
-__author__ = "Pål Nilsen (@maedox)"
+try:
+    import keyring
+    use_keyring = True
+except ImportError:
+    use_keyring = False
+
 
 # Support Python 2.7 and 3.3+ even if python-cloudflare doesn't yet.
 if version_info >= (2, 7):
@@ -181,15 +189,19 @@ def pretty_print_records(records):
             )
 
 
+def get_credentials(domain):
+    """Get credentials via netrc
+    """
+    nrc = netrc.netrc()
+    creds = nrc.authenticators("Cloudflare_" + domain)
+    if creds is not None and len(creds) == 3:
+        email, token = creds[0], creds[2]
+        return email, token
+    else:
+        return None, None
+
+
 if __name__ == "__main__":
-    import argparse
-
-    try:
-        import keyring
-        use_keyring = True
-    except ImportError:
-        use_keyring = False
-
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     me = parser.add_mutually_exclusive_group(required=True)
@@ -200,47 +212,60 @@ if __name__ == "__main__":
 
     parser.add_argument("--domain", dest="domain", required=True,
                         help="CloudFlare account domain")
-    parser.add_argument("--email", dest="email", required=True,
-                        help="CloudFlare account email")
     parser.add_argument("--token", dest="token",
                         help="CloudFlare API token. Will use the keyring module if it's installed.")
+
+    nr = parser.add_mutually_exclusive_group(required=True)
+    nr.add_argument("--email", dest="email",
+                    help="CloudFlare account email")
+    nr.add_argument("--use-netrc", action="store_true",
+                    help="Get token from ~/.netrc.")
+
     parser.add_argument("--subdomain", dest="subdomain",
                         help="DNS record subdomain")
     parser.add_argument("--content", dest="dest_addr",
                         help="Destination address or DNS record content")
-    parser.add_argument("--cf-mode", dest="cf_mode", default="0",
-                        choices=(0, 1),
+    parser.add_argument("--cf-mode", dest="cf_mode", default="0", choices=(0, 1),
                         help="CloudFlare service mode on(1)/off(0)")
-    parser.add_argument("--type", dest="rec_type", default="",
-                        choices=valid_record_types,
+    parser.add_argument("--type", dest="rec_type", default="", choices=valid_record_types,
                         help="DNS record type")
     parser.add_argument("--ip-service", dest="ip_services", nargs="+",
                         default=("http://icanhazip.com", "http://ip.appspot.com"), metavar="URL",
                         help="URL(s) to obtain external IP address from")
-    parser.add_argument("--log-level", dest="log_level", default="INFO",
-                        choices=valid_log_levels,
+    parser.add_argument("--log-level", dest="log_level", default="INFO", choices=valid_log_levels,
                         help="Logging level")
     args = parser.parse_args()
 
-    token = args.token
+    email = args.email
+
+    if args.use_netrc:
+        use_keyring = False
+        email, token = get_credentials(args.domain)
+
+    else:
+        token = args.token
+        if not token:
+            if use_keyring:
+                service = "cf-ddns"
+                token = keyring.get_password(service, email)
+                if not token:
+                    print("Cloudflare domain: '{0}', email: '{1}'".format(
+                        args.domain, email))
+                    while not token:
+                        try:
+                            token = getpass('API token: ')
+                            keyring.set_password(service, email, token)
+                        except KeyboardInterrupt:
+                            exit()
+
+    if not email:
+        exit("Email is missing. Did you not set it in .netrc?")
+
     if not token:
-        if use_keyring:
-            service = "cf-ddns"
-            token = keyring.get_password(service, args.email)
-            if not token:
-                print("Cloudflare domain: '{0}', email: '{1}'".format(
-                    args.domain, args.email))
-                while not token:
-                    try:
-                        token = getpass('API token: ')
-                        keyring.set_password(service, args.email, token)
-                    except KeyboardInterrupt:
-                        exit()
-        else:
-            exit("API token must be specified using the --token argument.")
+        exit("API token is not set. Please use the --token argument, add it in .netrc or install the keyring module.")
 
     if args.list:
-        pretty_print_records(get_all_records(args.domain, args.email, token))
+        pretty_print_records(get_all_records(args.domain, email, token))
 
     if args.update:
         if args.subdomain:
@@ -253,14 +278,14 @@ if __name__ == "__main__":
 
         try:
             if args.dest_addr:
-                modify_record(subdomain, args.domain, args.email, token,
+                modify_record(subdomain, args.domain, email, token,
                               args.dest_addr, args.rec_type, args.cf_mode)
 
             else:
                 ip_addr = get_external_ip(args.ip_services)
                 if ip_addr:
                     log.debug("Found external IP address: " + ip_addr)
-                    modify_record(subdomain, args.domain, args.email, token,
+                    modify_record(subdomain, args.domain, email, token,
                                   ip_addr, args.rec_type, args.cf_mode)
                 else:
                     log.error("Sorry, can't do anything without the external IP address. "
