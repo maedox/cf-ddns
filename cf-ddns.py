@@ -17,7 +17,6 @@ Requirements:
 Credit/inspiration:
     - dyndns-cf by scotchmist (https://github.com/scotchmist/dyndns-cf)
 """
-__author__ = "Pål Nilsen (@maedox)"
 
 import logging
 import logging.handlers
@@ -35,6 +34,7 @@ try:
 except ImportError:
     use_keyring = False
 
+__author__ = "Pål Nilsen (@maedox)"
 
 # Support Python 2.7 and 3.3+ even if python-cloudflare doesn't yet.
 if version_info >= (2, 7):
