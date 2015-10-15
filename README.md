@@ -8,13 +8,13 @@ way of keeping your subdomains up to date.
 
 You should probably run it from your crontab every five minutes or so.
 
-This will add/update an A record for domain.tld with your external IP address:
-```*/5 *  * * *  cf-ddns.py --domain domain.tld --email user@domain.tld --token ***```
+This will add/update an A/AAAA record for domain.tld with your external IP address:
+```*/5 *  * * *  cf-ddns.py --update --domain domain.tld --email user@domain.tld --token ***```
 
 
 ## Requirements:
 - A Cloudflare account and domain name.
-- Python 2.7.4+, probably not Python 3.x.
+- Python 2.7.4+.
 - python-cloudflare (https://github.com/eitak-ssim/python-cloudflare).
 
 
@@ -24,13 +24,11 @@ This will add/update an A record for domain.tld with your external IP address:
 
 ## Disclaimer:
 This software is provided as is. It should be safe, but don't blame me if your
-computer blows up. It is made for GNU/Linux based OS's and Python 2.7.x.
-
-It will probably crash and burn if you have an IPv6 address.
+computer blows up. It is made for GNU/Linux based OS's and Python 2.7.4, 3.3 and up.
 
 
 ## Tl;dr:
-- No installation needed, just run it with Python 2.7+.
+- No installation needed, just run it with Python 2.7.4 or 3.3 and up.
 - No guarantees what so ever.
 - Let me know what you think.
 
