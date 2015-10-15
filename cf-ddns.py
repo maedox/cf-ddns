@@ -243,6 +243,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     email = args.email
+    log.setLevel(args.log_level)
 
     if args.use_netrc:
         use_keyring = False
