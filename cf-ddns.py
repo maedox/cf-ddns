@@ -36,7 +36,7 @@ except ImportError:
 
 __author__ = "Pål Nilsen (@maedox)"
 
-# Support Python 2.7 and 3.3+ even if python-cloudflare doesn't yet.
+# Support Python 2.7 and 3.3+.
 if version_info >= (2, 7):
     from urllib import urlopen
 elif version_info >= (3, 3):
