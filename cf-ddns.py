@@ -25,7 +25,7 @@ import socket
 
 from getpass import getpass
 from os import path
-from sys import version_info
+from sys import version_info, stdout
 import argparse
 
 try:
@@ -64,6 +64,9 @@ log_handler.setFormatter(log_format)
 log = logging.getLogger(log_path)
 log.setLevel("INFO")
 log.addHandler(log_handler)
+
+log_stdout = logging.StreamHandler(stdout)
+log_stdout.setFormatter(log_format)
 
 
 def is_ipv4(ip_address):
@@ -234,6 +237,9 @@ if __name__ == "__main__":
                         help="URL(s) to obtain external IP address from")
     parser.add_argument("--log-level", dest="log_level", default="INFO", choices=valid_log_levels,
                         help="Logging level")
+    parser.add_argument("--silent", action="store_true",
+                        help="Stay silent and don't print actions to stdout. Logging will still occur.")
+
     args = parser.parse_args()
 
     email = args.email
@@ -263,6 +269,9 @@ if __name__ == "__main__":
 
     if not token:
         exit("API token is not set. Please use the --token argument, add it in .netrc or install the keyring module.")
+
+    if not args.silent and stdout.isatty():
+        log.addHandler(log_stdout)
 
     if args.list:
         pretty_print_records(get_all_records(args.domain, email, token))
