@@ -281,26 +281,27 @@ if __name__ == "__main__":
         if args.subdomain:
             if args.subdomain.endswith('.' + args.domain):
                 subdomain = args.subdomain
+            elif args.subdomain == args.domain:
+                subdomain = args.subdomain
             else:
                 subdomain = args.subdomain + '.' + args.domain
         else:
             subdomain = args.domain
 
         try:
-            if args.dest_addr:
-                modify_record(subdomain, args.domain, email, token,
-                              args.dest_addr, args.rec_type, args.cf_mode)
-
-            else:
-                ip_addr = get_external_ip(args.ip_services)
-                if ip_addr:
-                    log.debug("Found external IP address: " + ip_addr)
-                    modify_record(subdomain, args.domain, email, token,
-                                  ip_addr, args.rec_type, args.cf_mode)
+            dest_addr = args.dest_addr
+            if not dest_addr:
+                dest_addr = get_external_ip(args.ip_services)
+                if dest_addr:
+                    log.debug("Found external IP address: " + dest_addr)
                 else:
                     log.error("Sorry, can't do anything without the external IP address. "
                               "Please specify an IP address manually or make sure the IP resolution "
                               "service(s) work as expected.")
+                    exit()
+
+            modify_record(subdomain, args.domain, email, token,
+                          dest_addr, args.rec_type, args.cf_mode)
 
         except cloudflare.CloudFlare.APIError as e:
             log.error("CloudFlare API responded with error: {}".format(e))
