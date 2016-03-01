@@ -18,15 +18,17 @@ Credit/inspiration:
     - dyndns-cf by scotchmist (https://github.com/scotchmist/dyndns-cf)
 """
 
+import argparse
 import logging
 import logging.handlers
 import netrc
 import socket
 
+import requests
+
 from getpass import getpass
 from os import path
-from sys import version_info, stdout
-import argparse
+from sys import stdout
 
 try:
     import keyring
@@ -35,15 +37,6 @@ except ImportError:
     use_keyring = False
 
 __author__ = "Pål Nilsen (@maedox)"
-
-# Support Python 2.7 and 3.3+.
-if version_info >= (2, 7):
-    from urllib import urlopen
-elif version_info >= (3, 3):
-    from urllib.request import urlopen
-else:
-    exit('Incompatible Python version {}.\n'
-         'Please use Python 2.7 or 3.3+')
 
 try:
     import cloudflare
@@ -83,82 +76,88 @@ def is_ipv6(ip_address):
         return False
 
 
-def modify_record(subdom, domain, email, tkn, dest_addr, rec_type, cf_mode):
+def modify_record(subdom, domain, email, tkn, dest_addrs, rec_type, cf_mode):
     """Connect to the CloudFlare API and add or update a DNS record"""
 
-    if rec_type == "A":
-        if is_ipv6(dest_addr):
-            print(dest_addr + " is an IPv6 address. Use --type AAAA.")
-            exit(1)
+    for dest_addr in dest_addrs:
+        if rec_type == "A":
+            if is_ipv6(dest_addr):
+                print(dest_addr + " is an IPv6 address. Use --type AAAA.")
+                exit(1)
 
-        if not is_ipv4(dest_addr):
-            print(dest_addr + " is not a valid IPv4 address.")
-            exit(1)
+            if not is_ipv4(dest_addr):
+                print(dest_addr + " is not a valid IPv4 address.")
+                exit(1)
 
-    if rec_type == "AAAA":
-        if is_ipv4(dest_addr):
-            print(dest_addr + " is an IPv4 address. Use --type A.")
-            exit(1)
+        if rec_type == "AAAA":
+            if is_ipv4(dest_addr):
+                print(dest_addr + " is an IPv4 address. Use --type A.")
+                exit(1)
 
-        if not is_ipv6(dest_addr):
-            print(dest_addr + " is not a valid IPv6 address.")
-            exit(1)
+            if not is_ipv6(dest_addr):
+                print(dest_addr + " is not a valid IPv6 address.")
+                exit(1)
 
-    if not rec_type:
-        if is_ipv4(dest_addr):
-            rec_type = 'A'
-        elif is_ipv6(dest_addr):
-            rec_type = 'AAAA'
-        else:
-            raise ValueError('Unable to determine record type. Please add the --type argument.')
+        rtype = rec_type
+        if not rtype:
+            if is_ipv4(dest_addr):
+                rtype = 'A'
+            elif is_ipv6(dest_addr):
+                rtype = 'AAAA'
+            else:
+                raise ValueError('Unable to determine record type. Please add the --type argument.')
 
-    log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
-              domain, subdom, email, dest_addr, rec_type, cf_mode)
+        log.debug("""Domain: %s, subdomain: %s, email: %s, IP address: %s, record type: %s, service mode: %s""",
+                  domain, subdom, email, dest_addr, rtype, cf_mode)
 
-    cf_api = cloudflare.CloudFlare(email, tkn)
-    records = get_all_records(domain, email, tkn)
-    log.debug("%s records: %s", domain, records)
+        cf_api = cloudflare.CloudFlare(email, tkn)
+        records = get_all_records(domain, email, tkn)
+        log.debug("%s records: %s", domain, records)
 
-    rec_id = None
-    rec_name = None
+        rec_id = None
+        rec_name = None
 
-    for record in records:
-        rec_name = record["name"]
-        if rec_name == subdom:
-            # Don't update identical record
-            if record["content"] == dest_addr:
-                log.debug("Identical record already exists.")
-                return
+        for record in records:
+            rec_exists = False
+            if record["name"] == subdom:
+                # Don't update identical record
+                if record["content"] == dest_addr:
+                    log.debug("Identical record already exists.")
+                    rec_exists = True
+                    break
 
-            rec_id = record["rec_id"]
-            break
+                if record["type"] == rtype:
+                    rec_id = record["rec_id"]
+                    break
 
-    if rec_id:
-        log.info("Found existing record with id: %s", rec_id)
-        api_resp = cf_api.rec_edit(domain, rec_type, rec_id,
-                                   rec_name, dest_addr, cf_mode)
-        log.info("Updated record: %s %s %s",
-                 subdom, rec_type, dest_addr)
-        log.debug("Response from CloudFlare: %s", api_resp)
+        if not rec_exists:
+            if rec_id:
+                log.info("Found existing record with id: %s", rec_id)
+                api_resp = cf_api.rec_edit(domain, rtype, rec_id, rec_name, dest_addr, cf_mode)
+                log.info("Updated record: %s %s %s",
+                         subdom, rtype, dest_addr)
+                log.debug("Response from CloudFlare: %s", api_resp)
 
-    else:
-        log.debug("The record doesn't exist, adding it...")
-        api_resp = cf_api.rec_new(domain, rec_type, dest_addr,
-                                  subdom, cf_mode)
-        log.info("Added new record: %s %s %s",
-                 subdom, rec_type, dest_addr)
-        log.debug("Response from CloudFlare: %s", api_resp)
+            else:
+                log.debug("The record doesn't exist, adding it...")
+                api_resp = cf_api.rec_new(domain, rtype, dest_addr, subdom, cf_mode)
+                log.info("Added new record: %s %s %s",
+                         subdom, rtype, dest_addr)
+                log.debug("Response from CloudFlare: %s", api_resp)
 
 
 def get_external_ip(services):
-    """Get the external IP address from any available free web service"""
-    ip = None
+    """Get the external IP address from any available web service"""
+    ips = set()
     for s in services:
         try:
-            ip = urlopen(s).read().strip()
+            ip = requests.get(s).text.strip()
+            log.debug("Got external IP address '%s' from '%s'", ip, s)
+            if ip:
+                ips.add(ip)
         except Exception:
             pass
-    return ip
+    return ips
 
 
 def get_all_records(domain, email, tkn):
@@ -227,7 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--subdomain", dest="subdomain",
                         help="DNS record subdomain")
     parser.add_argument("--content", dest="dest_addr",
-                        help="Destination address or DNS record content")
+                        help="Destination address or DNS record content. One or more IPv4/IPv6 is allowed.")
     parser.add_argument("--cf-mode", dest="cf_mode", default="0", choices=(0, 1),
                         help="CloudFlare service mode on(1)/off(0)")
     parser.add_argument("--type", dest="rec_type", default="", choices=valid_record_types,
@@ -289,19 +288,15 @@ if __name__ == "__main__":
             subdomain = args.domain
 
         try:
-            dest_addr = args.dest_addr
-            if not dest_addr:
-                dest_addr = get_external_ip(args.ip_services)
-                if dest_addr:
-                    log.debug("Found external IP address: " + dest_addr)
-                else:
+            dest_addrs = args.dest_addr
+            if not dest_addrs:
+                dest_addrs = get_external_ip(args.ip_services)
+                if not dest_addrs:
                     log.error("Sorry, can't do anything without the external IP address. "
                               "Please specify an IP address manually or make sure the IP resolution "
                               "service(s) work as expected.")
-                    exit()
-
             modify_record(subdomain, args.domain, email, token,
-                          dest_addr, args.rec_type, args.cf_mode)
+                          dest_addrs, args.rec_type, args.cf_mode)
 
         except cloudflare.CloudFlare.APIError as e:
             log.error("CloudFlare API responded with error: {}".format(e))
