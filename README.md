@@ -15,6 +15,7 @@ This will add/update an A/AAAA record for domain.tld with your external IP addre
 ## Requirements:
 - A Cloudflare account and domain name.
 - Python 2.7.4+.
+- Requests (https://github.com/kennethreitz/requests)
 - python-cloudflare (https://github.com/eitak-ssim/python-cloudflare).
 
 
