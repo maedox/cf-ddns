@@ -93,7 +93,7 @@ class Cloudflare:
             r.raise_for_status()
 
     def _get_zone_id(self, name):
-        """Get the zone if for a domain name
+        """Get the zone id for a domain name
         """
         self.log.debug('%s: Getting zone id ...', name)
         params = {'name': name}
