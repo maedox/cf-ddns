@@ -47,7 +47,7 @@ class Cloudflare:
         # Create a 'Session' to enable setting 'max_retries'
         self.api = requests.Session()
         a = requests.adapters.HTTPAdapter(max_retries=3)
-        self.api.mount('https://', a)
+        self.api.mount(self.base_url, a)
 
         self.zone_id = self._get_zone_id(name)
 
@@ -84,7 +84,7 @@ class Cloudflare:
         """Call the Cloudflare API
         """
         self.log.debug('API request: %s %s params:%s data:%s ...', method, self.base_url + req_path, params, data)
-        r = self.api.request(method, self.base_url + req_path, params=params, headers=self.headers, json=data)
+        r = self.api.request(method, self.base_url+req_path, params=params, headers=self.headers, json=data, timeout=10)
         if r.ok:
             self.log.debug('API response: %s', r.text)
             return r.json()
