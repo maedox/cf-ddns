@@ -26,4 +26,8 @@ This software is provided as is. It should be safe, but don't blame me if your
 computer blows up. It is tested on Ubuntu 16.04 with Python 2.7.6 and 3.5.2.
 
 
+## Installation:
+```pip install --user --upgrade cf-ddns```
+
+
 Twitter: https://twitter.com/maedox/
