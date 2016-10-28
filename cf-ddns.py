@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """CloudFlare Dynamic DNS updater
 
@@ -153,7 +153,7 @@ class Cloudflare:
             self.log.error('Getting record type failed for %s', value)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--name", required=True, help="Fully qualified domain name to set or update.")
     parser.add_argument("--proxy", action="store_true", help="Enable Cloudflare proxy.")
@@ -172,3 +172,7 @@ if __name__ == "__main__":
 
     for ip in cf.get_external_ips(args.ip_services):
         cf.set_record(args.name, ip, args.proxy)
+
+
+if __name__ == "__main__":
+    main()
