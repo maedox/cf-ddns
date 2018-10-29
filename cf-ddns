@@ -175,7 +175,7 @@ def main():
     parser.add_argument("--name", nargs='+', required=True, help="Fully qualified domain name to set or update.")
     parser.add_argument("--proxy", action="store_true", help="Enable Cloudflare proxy.")
     parser.add_argument("--ip-services", nargs="+", help="URL(s) to obtain external IP address from.",
-                        default=("https://api.ipify.org", "https://icanhazip.com"), metavar="URL")
+                        default=("https://ipv4.icanhazip.com", "https://ipv6.icanhazip.com"), metavar="URL")
     parser.add_argument("--log-level", default="INFO", help="Logging level.",
                         choices=("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"),)
     args = parser.parse_args()
