@@ -5,49 +5,39 @@ from setuptools import setup
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name='cf-ddns',
-
+    name="cf-ddns",
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.0.3',
-
-    description='CloudFlare Dynamic DNS updater',
+    version="1.1.0",
+    description="CloudFlare Dynamic DNS updater",
     long_description=long_description,
-
     # The project's main homepage.
-    url='https://github.com/maedox/cf-ddns',
-
+    url="https://github.com/maedox/cf-ddns",
     # Author details
-    author='Pål Nilsen',
-    author_email='paal.nilsen@gmail.com',
-
+    author="Pål Nilsen",
+    author_email="paal.nilsen@gmail.com",
     # Choose your license
-    license='MIT',
-
+    license="MIT",
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'Topic :: Internet :: WWW/HTTP :: Site Management',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Topic :: Internet :: WWW/HTTP :: Site Management",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
     ],
-    keywords='ddns cloudflare',
-
-    install_requires=['requests'],
-    extras_require={
-        'sentry': ['raven'],
-    },
-
-    scripts=['cf-ddns'],
+    keywords="ddns cloudflare",
+    install_requires=["requests"],
+    extras_require={"sentry": ["raven"]},
+    scripts=["cf-ddns"],
 )
