@@ -172,7 +172,7 @@ class Cloudflare:
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--name", required=True, help="Fully qualified domain name to set or update.")
+    parser.add_argument("--name", nargs='+', required=True, help="Fully qualified domain name to set or update.")
     parser.add_argument("--proxy", action="store_true", help="Enable Cloudflare proxy.")
     parser.add_argument("--ip-services", nargs="+", help="URL(s) to obtain external IP address from.",
                         default=("https://api.ipify.org", "https://icanhazip.com"), metavar="URL")
@@ -180,15 +180,24 @@ def main():
                         choices=("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"),)
     args = parser.parse_args()
 
-    if '.' in args.name:
-        domain = '.'.join(args.name.split('.')[-2:])
-    else:
-        raise ValueError('{} is not a valid hostname'.format(args.name))
+    names = set()
+    domain = None
+
+    for name in args.name:
+        if '.' not in name or name.count('.') != 2:
+            raise ValueError('{} is not a valid hostname'.format(args.name))
+        else:
+            _domain = '.'.join(name.split('.')[-2:])
+            if domain is not None and domain != _domain:
+                raise ValueError('Domains must be the same for all --name subdomains.')
+            domain = _domain
+            names.add(name)
 
     cf = Cloudflare(domain, args.log_level)
 
     for ip in cf.get_external_ips(args.ip_services):
-        cf.set_record(args.name, ip, args.proxy)
+        for name in names:
+            cf.set_record(name, ip, args.proxy)
 
 
 if __name__ == "__main__":
