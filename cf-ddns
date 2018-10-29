@@ -24,7 +24,6 @@ else:
 
 
 class Cloudflare:
-
     def __init__(self, name, log_level='INFO'):
         log_path = os.path.join(os.path.expanduser("~"), ".cf-ddns.log")
         log_file = logging.handlers.RotatingFileHandler(
@@ -136,9 +135,13 @@ class Cloudflare:
                 if ip:
                     ips.add(ip)
             except Exception as err:
-                self.log.error('%s: %s', s, err)
-                if sentry:
-                    sentry.captureException()
+                if not ips:
+                    self.log.error('%s: %s', s, err)
+                    if sentry:
+                        sentry.captureException()
+                else:
+                    self.log.warning('%s: %s', s, err)
+
         return ips
 
     def set_record(self, name, value, proxy):
