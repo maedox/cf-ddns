@@ -13,7 +13,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version="1.1.0",
+    version="1.1.1",
     description="CloudFlare Dynamic DNS updater",
     long_description=long_description,
     # The project's main homepage.
@@ -37,7 +37,7 @@ setup(
         "Programming Language :: Python :: 3.5",
     ],
     keywords="ddns cloudflare",
-    install_requires=["requests"],
+    install_requires=["requests", "urllib3"],
     extras_require={"sentry": ["raven"]},
     scripts=["cf-ddns"],
 )
