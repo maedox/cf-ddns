@@ -26,7 +26,7 @@ else:
 
 
 class Cloudflare:
-    def __init__(self, name, log_level="INFO"):
+    def __init__(self, name=None, zone_id=None, log_level="INFO"):
         log_path = os.path.join(os.path.expanduser("~"), ".cf-ddns.log")
         log_file = logging.handlers.RotatingFileHandler(
             filename=log_path, maxBytes=1000000, backupCount=1, encoding="utf-8"
@@ -46,9 +46,17 @@ class Cloudflare:
         self.base_url = "https://api.cloudflare.com/client/v4"
         email = os.getenv("CF_EMAIL")
         token = os.getenv("CF_TOKEN")
-        if not email or not token:
-            raise EnvironmentError("CF_EMAIL and CF_TOKEN envvars must be set.")
-        self.headers = {"X-Auth-Email": email, "X-Auth-Key": token}
+        api_token = os.getenv("CF_API_TOKEN")
+        if api_token:
+            self.headers = {"Authorization": "Bearer " + api_token}
+        elif email and token:
+            self.headers = {"X-Auth-Email": email, "X-Auth-Key": token}
+        else:
+            raise EnvironmentError(
+                "Missing required environment variables.\n"
+                "Either add an API token in the CF_API_TOKEN envvar (recommended),\n"
+                "or add both CF_EMAIL and CF_TOKEN envvars to use the superuser token."
+            )
 
         # Create a 'Session' to enable setting 'max_retries'
         self.api = requests.Session()
@@ -63,7 +71,7 @@ class Cloudflare:
         retry_adapter = requests.adapters.HTTPAdapter(max_retries=retry)
         self.api.mount(self.base_url, retry_adapter)
 
-        self.zone_id = self._get_zone_id(name)
+        self.zone_id = zone_id or self._get_zone_id(name)
 
     @staticmethod
     def _is_ipv4(ip_address):
@@ -94,7 +102,7 @@ class Cloudflare:
         else:
             return None
 
-    def _call_api(self, method, req_path, params, data=None):
+    def _call_api(self, method, req_path, params=None, data=None):
         """Call the Cloudflare API
         """
         self.log.debug(
@@ -123,6 +131,16 @@ class Cloudflare:
             if sentry:
                 sentry.captureException()
             raise
+
+    def verify_api_token(self):
+        """Get the zone id for a domain name
+        """
+        self.log.debug("Verifying API token ...")
+        d = self._call_api("GET", "/user/tokens/verify")
+        if "success" in d:
+            return d["success"]
+        else:
+            raise ValueError("API error: %s", d)
 
     def _get_zone_id(self, name):
         """Get the zone id for a domain name
@@ -238,6 +256,8 @@ def main():
         help="Logging level.",
         choices=("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"),
     )
+    parser.add_argument("--zone-id", help="Set Zone id")
+    parser.add_argument("--verify-token", help="Verify API token", action="store_true")
     args = parser.parse_args()
 
     names = set()
@@ -253,7 +273,13 @@ def main():
             domain = _domain
             names.add(name)
 
-    cf = Cloudflare(domain, args.log_level)
+    cf = Cloudflare(name=domain, zone_id=args.zone_id, log_level=args.log_level)
+
+    if args.verify_token:
+        if cf.verify_api_token():
+            exit(0)
+        else:
+            exit(1)
 
     for ip in cf.get_external_ips(args.ip_services):
         for name in names:
